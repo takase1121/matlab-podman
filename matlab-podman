@@ -26,6 +26,7 @@ main() {
 	local container_id=""
 	local podman_args=""
 	local image_args=""
+	local exit_code=0
 
 	local image="localhost/matlab-minimal"
 	local mounts=""
@@ -161,9 +162,10 @@ main() {
 
 	# todo dry-run
 	container_id=$(podman run $podman_args $image $image_args)
-	if [ -z $container_id ]; then
-		echo "Error: podman exited with status $?"
-		exit $?
+	exit_code=$?
+	if [ $exit_code -ne 0 ]; then
+		echo "Error: podman exited with status $exit_code"
+		exit $exit_code
 	fi
 
 	echo -e "Container ID:\t$container_id"
