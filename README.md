@@ -87,6 +87,28 @@ Dependencies:
 - `podman` (has to be podman)
 - TigerVNC (`vncviewer` and `vncpasswd`) (optional)
 
+```
+matlab-podman: Run MATLAB in a container with VNC
+Usage:
+    matlab-podman [OPTIONS]
+    matlab-podman [OPTIONS] -- [IMAGE ARGUMENTS]
+
+Options:
+-v,--mount                Mounts a path to the container. This follows podman's -v and --mount syntax respectively.
+-b,--browser              Uses NoVNC instead of TigerVNC. (Default: unset)
+-B,--no-open-url          Do not use xdg-open to open the URL. (Default: unset)
+-s,--shm-size             SHM size. (Default: 512M)
+-d,--data-dir             Directory to be mounted as $HOME/.matlab. (Default: /home/takase/matlab-data) Put '-' to never mount .matlab
+-D,--no-mount-defaults    Do not mount anything automatically. (Default: unset)
+-a,--podman-args          Extra arguments to pass to podman. (Default: unset)
+-p,--password             Prompt for a password. (Default: "matlab")
+-i,--image                Image name. (Default: local/matlab-minimal)
+-w,--wait                 Wait for VNC viewer to exit and kill the container. (Default: unset) This is not supported for NoVNC, use -W instead.
+-W,--watch                Terminate the container once all clients disconnected. (Default: unset)
+-x,--debug                Enable debug mode. (Default: unset)
+-h,--help                 Print this message.
+```
+
 ### Alternatives
 - use the [original Docker image][2]
 - [systemd-nspawn][3] as suggested by Arch Wiki (didn't work for me)
