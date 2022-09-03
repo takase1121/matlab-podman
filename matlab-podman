@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+
+usage() {
+	local PROGRAM_NAME="$(basename "$0")"
+	echo
+	echo "$PROGRAM_NAME: Run MATLAB in a container with VNC"
+	echo "Usage: $PROGRAM_NAME [OPTIONS]"
+	echo "Usage: $PROGRAM_NAME [OPTIONS] -- [IMAGE ARGUMENTS]"
+	echo
+	echo "Options:"
+	echo "-v,--mount               Mounts a path to the container. This follows podman's -v and --mount syntax respectively."
+	echo "-b,--novnc               Uses NoVNC instead of TigerVNC. (Default: unset)"
+	echo "-s,--shm-size            SHM size. (Default: 512M)"
+	echo "-d,--dotmatlab-dir       Directory to be mounted as \$HOME/.matlab. (Default: $HOME/matlab-data) Put '-' to never mount .matlab"
+	echo "-D,--dont-mount-anything Do not mount anything automatically. (Default: unset)"
+	echo "-a,--podman-arguments    Extra arguments to pass to podman. (Default: unset)"
+	echo "-p,--passwd              Prompt for a password. (Default: \"matlab\")"
+	echo "-i,--image               Image name. (Default: local/matlab-minimal)"
+	echo "-w,--wait                Wait for VNC viewer to exit and kill the container. (Default: unset) This is not supported for NoVNC."
+	echo "-x,--debug               Enable debug mode. (Default: unset)"
+	echo "-h,--help                Print this message."
+	echo
+}
+
+main() {
+	local container_id=""
+	local podman_args=""
+	local image_args=""
+
+	local image="localhost/matlab-minimal"
+	local mounts=""
+	local novnc=0
+	local shm_size="512M"
+	local dotmatlab_dir="$HOME/matlab-data"
+	local default_mounts=1
+	local wait_exit=0
+	local password=0
+	local password2=0
+	local vnc_pid=""
+	
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			-h|--help)
+				usage
+				exit 0
+				;;
+			-v|--mount)
+				mounts="$mounts $1 $2"
+				shift
+				shift
+				;;
+			-b|--novnc)
+				novnc=1
+				shift
+				;;
+			-s|--shm-size)
+				shm_size="$2"
+				shift
+				shift
+				;;
+			-d|--dotmatlab-dir)
+				dotmatlab_dir="$2"
+				shift
+				shift
+				;;
+			-D|--dont-mount-anything)
+				default_mounts=0
+				shift
+				;;
+			-a|--podman-arguments)
+				podman_args="$2"
+				shift
+				shift
+				;;
+			-p|--passwd)
+				password=1
+				shift
+				;;
+			-i|--image)
+				image="$2"
+				shift
+				shift
+				;;
+			-w|--wait)
+				wait_exit=1
+				shift
+				;;
+			-x|--debug)
+				set -x
+				shift
+				;;
+			--)
+				shift
+				break
+				;;
+			*)
+				echo "Error: unknown argument \"$i\""
+				usage
+				exit 1
+				;;
+		esac
+	done
+
+	image_args="$@"
+
+	[ -z "$image_args" ] && image_args="-vnc"
+	if [[ ! "$image_args" == *"-vnc"* ]]; then
+		echo "Error: non -vnc options are not supported"
+		exit 2
+	fi
+
+	if [ $password -eq 1 ]; then
+		# literally prompt for a password
+		while :; do
+			printf "Password: "
+			read -s password
+			if [ ${#password} -lt 6 ]; then
+				echo "Password must be at least 6 characters long"
+			else
+				break
+			fi
+		done
+
+		echo
+
+		while :; do
+			printf "Password (Repeat): "
+			read -s password2
+			if [ "$password" != "$password2" ]; then
+				echo "Password mismatch"
+			else
+				break
+			fi
+		done
+
+		echo
+
+		podman_args="-e PASSWORD=$password $podman_args"
+	else
+		password="matlab"
+	fi
+
+	if [ $default_mounts -eq 1 ]; then
+		mkdir -p "$dotmatlab_dir"
+		# fixme: remove that security-opt without causing problems with selinux
+		mounts="$mounts -v$dotmatlab_dir:/home/matlab/.matlab:rw -v$HOME:/home/matlab/host.$USER:rw --security-opt label=type:container_runtime_t"
+	fi
+
+	if [ $novnc -eq 0 ] && ! command -v vncviewer >/dev/null 2>&1; then
+		echo "TigerVNC is not installed; Falling back to NoVNC"
+	fi
+
+	podman_args="-p 5901:5901 -d --rm $mounts --shm-size=512M --userns=keep-id $podman_args"
+
+	if [ $novnc -eq 1 ]; then
+		# expose noVNC
+		podman_args="-p 6080:6080 $podman_args"
+	fi
+
+	# todo dry-run
+	container_id=$(podman run $podman_args $image $image_args)
+	if [ -z $container_id ]; then
+		echo "Error: podman exited with status $?"
+		exit $?
+	fi
+
+	echo -e "Container ID:\t$container_id"
+
+	sleep 1
+
+	if [ $novnc -eq 1 ]; then
+		echo -e "NoVNC URL:\thttp://127.0.0.1:6080"
+		echo "Starting browser (If it didn't start go to the URL above)"
+		command -v xdg-open &> /dev/null && xdg-open "http://127.0.0.1:6080" >/dev/null 2>&1
+	else
+		echo "Starting vncviewer"
+		vnc_passwd=$(mktemp)
+		printf "$password\n$password\n\n" | vncpasswd $vnc_passwd >/dev/null 2>&1
+		vncviewer -passwd $vnc_passwd 127.0.0.1::5901 >/dev/null 2>&1 &
+		vnc_pid=$!
+	fi
+
+	if [ $wait_exit -eq 1 ]; then
+		if [ -z $vnc_pid ]; then
+			echo "Waiting is not supported; please kill the container with"
+			echo -e "\tpodman kill $container_id"
+		else
+			wait $vnc_pid
+			rm -f $vnc_passwd
+			podman kill $container_id >/dev/null 2>&1
+		fi
+	fi
+}
+
+main "$@"

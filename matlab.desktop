@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Terminal=True
+MimeType=text/x-matlab
+Exec=/opt/matlab/R2022a/bin/matlab
+Name=MATLAB
+Icon=matlab
+Categories=Development;Math;Science
+Comment=Scientific computing environment
+StartupNotify=False

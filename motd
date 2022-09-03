@@ -1,0 +1,4 @@
+If you use the matlab-podman script, your home folder should be mounted at /home/matlab/host.{username}.
+
+Have a nice day!
+
