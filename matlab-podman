@@ -34,9 +34,11 @@ main() {
 	local dotmatlab_dir="$HOME/matlab-data"
 	local default_mounts=1
 	local wait_exit=0
-	local password=0
-	local password2=0
+	local custom_password=0
+	local password=""
+	local password2=""
 	local vnc_pid=""
+	local novnc_url=""
 	
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -73,7 +75,7 @@ main() {
 				shift
 				;;
 			-p|--passwd)
-				password=1
+				custom_password=1
 				shift
 				;;
 			-i|--image)
@@ -109,7 +111,7 @@ main() {
 		exit 2
 	fi
 
-	if [ $password -eq 1 ]; then
+	if [ $custom_password -eq 1 ]; then
 		# literally prompt for a password
 		while :; do
 			printf "Password: "
@@ -169,9 +171,15 @@ main() {
 	sleep 1
 
 	if [ $novnc -eq 1 ]; then
-		echo -e "NoVNC URL:\thttp://127.0.0.1:6080"
+		# redirecrt will not work with custom passwords
+		if [ $custom_password -eq 1 ]; then
+			novnc_url="http://127.0.0.1:6080/vnc.html?autoconnect=true&resize=remote"
+		else
+			novnc_url="http://127.0.0.1:6080"
+		fi
+		echo -e "NoVNC URL:\t$novnc_url"
 		echo "Starting browser (If it didn't start go to the URL above)"
-		command -v xdg-open &> /dev/null && xdg-open "http://127.0.0.1:6080" >/dev/null 2>&1
+		command -v xdg-open &> /dev/null && xdg-open "$novnc_url" >/dev/null 2>&1
 	else
 		echo "Starting vncviewer"
 		vnc_passwd=$(mktemp)
