@@ -21,12 +21,14 @@ usage() {
 	echo "-b,--browser              Uses NoVNC instead of TigerVNC. (Default: unset)"
 	echo "-B,--no-open-url          Do not use xdg-open to open the URL. (Default: unset)"
 	echo "-s,--shm-size             SHM size. (Default: 512M)"
-	echo "-d,--data-dir             Directory to be mounted as \$HOME/.matlab. (Default: $HOME/matlab-data) Put '-' to never mount .matlab"
+	echo "-d,--data-dir             Directory to be mounted as \$HOME/.matlab. (Default: \"$HOME/matlab-data\")"
+	echo "							Put '-' to never mount .matlab."
 	echo "-D,--no-mount-defaults    Do not mount anything automatically. (Default: unset)"
 	echo "-a,--podman-args          Extra arguments to pass to podman. (Default: unset)"
 	echo "-p,--password             Prompt for a password. (Default: \"matlab\")"
 	echo "-i,--image                Image name. (Default: local/matlab-minimal)"
-	echo "-w,--wait                 Wait for VNC viewer to exit and kill the container. (Default: unset) This is not supported for NoVNC, use -W instead."
+	echo "-w,--wait                 Wait for VNC viewer to exit and kill the container. (Default: unset)"
+	echo "							This is not supported for NoVNC, use -W instead."
 	echo "-W,--watch                Terminate the container once all clients disconnected. (Default: unset)"
 	echo "-x,--debug                Enable debug mode. (Default: unset)"
 	echo "-h,--help                 Print this message."
@@ -191,10 +193,12 @@ main() {
 
 	# set up mounts
 	if [[ $no_mount_defaults == n ]]; then
-		mkdir -p "$data_dir"
 		# FIXME: find a way to avoid this
 		podman_args+=("--security-opt" "label=type:container_runtime_t")
-		podman_args+=("--mount" "type=bind,src=$data_dir,dst=/home/matlab/.matlab,rw=true")
+		if [[ $data_dir != "-" ]]; then
+			mkdir -p "$data_dir"
+			podman_args+=("--mount" "type=bind,src=$data_dir,dst=/home/matlab/.matlab,rw=true")
+		fi
 		podman_args+=("--mount" "type=bind,src=$HOME,dst=/home/matlab/host.$USER,rw=true")
 	fi
 
