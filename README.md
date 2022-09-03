@@ -55,7 +55,7 @@ ID            NAME              CPU %       MEM USAGE / LIMIT  MEM %       NET I
 TigerVNC viewer and NoVNC supports remote resizing while openbox can resize maximized windows when screen size changes.
 If MATLAB is maximized it provides a seamless desktop experience.
 
-![video](https://user-images.githubusercontent.com/20792268/188265893-a3087498-06c7-4ddd-b518-d7e8f653f3dc.mp4)
+https://user-images.githubusercontent.com/20792268/188265893-a3087498-06c7-4ddd-b518-d7e8f653f3dc.mp4
 
 ### matlab-minimal image
 
