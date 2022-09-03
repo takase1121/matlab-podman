@@ -16,6 +16,7 @@ RUN rm -rf /home/matlab/.config/xfce4 /home/matlab/Desktop
 RUN chmod +w /home/matlab/.vnc/xstartup \
 	&& sed -i 's/startxfce4/openbox-session/g' /home/matlab/.vnc/xstartup \
 	&& echo "xrdb -merge \$HOME/.Xresources" >> /home/matlab/.vnc/xstartup \
+	&& echo "[ ! -z \"\$TERMINATE_ON_DISCONNECT\" ] && sudo bash /bin/watch-connection.sh &" >> /home/matlab/.vnc/xstartup \
 	&& echo "xterm &" >> /home/matlab/.vnc/xstartup \
 	&& chmod -w /home/matlab/.vnc/xstartup
 
@@ -34,6 +35,12 @@ COPY matlab.xpm /usr/share/pixmaps/matlab.xpm
 
 # copy xresources
 COPY --chown=matlab:matlab Xresources /home/matlab/.Xresources
+
+# copy connection watcher
+COPY watch-connection.sh /bin/watch-connection.sh
+
+# make connection watcher executable
+RUN sudo chmod +x /bin/watch-connection.sh
 
 # expose the vnc ports
 EXPOSE 5901

@@ -16,7 +16,8 @@ usage() {
 	echo "-a,--podman-arguments    Extra arguments to pass to podman. (Default: unset)"
 	echo "-p,--passwd              Prompt for a password. (Default: \"matlab\")"
 	echo "-i,--image               Image name. (Default: local/matlab-minimal)"
-	echo "-w,--wait                Wait for VNC viewer to exit and kill the container. (Default: unset) This is not supported for NoVNC."
+	echo "-w,--wait                Wait for VNC viewer to exit and kill the container. (Default: unset) This is not supported for NoVNC, use -W instead."
+	echo "-W,--watch               Terminate the container once all clients disconnected. (Default: unset)"
 	echo "-x,--debug               Enable debug mode. (Default: unset)"
 	echo "-h,--help                Print this message."
 	echo
@@ -40,6 +41,7 @@ main() {
 	local password2=""
 	local vnc_pid=""
 	local novnc_url=""
+	local server_watch=0
 	
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -86,6 +88,10 @@ main() {
 				;;
 			-w|--wait)
 				wait_exit=1
+				shift
+				;;
+			-W|--watch)
+				server_watch=1
 				shift
 				;;
 			-x|--debug)
@@ -160,7 +166,10 @@ main() {
 		podman_args="-p 6080:6080 $podman_args"
 	fi
 
-	# todo dry-run
+	if [ $server_watch -eq 1 ]; then
+		podman_args="-e TERMINATE_ON_DISCONNECT=1 $podman_args"
+	fi
+
 	container_id=$(podman run $podman_args $image $image_args)
 	exit_code=$?
 	if [ $exit_code -ne 0 ]; then
@@ -186,19 +195,23 @@ main() {
 		echo "Starting vncviewer"
 		vnc_passwd=$(mktemp)
 		printf "$password\n$password\n\n" | vncpasswd $vnc_passwd >/dev/null 2>&1
-		vncviewer -passwd $vnc_passwd 127.0.0.1::5901 >/dev/null 2>&1 &
+		{ vncviewer -passwd $vnc_passwd 127.0.0.1::5901 >/dev/null 2>&1 ; rm -f $vnc_passwd; } &
 		vnc_pid=$!
 	fi
 
-	if [ $wait_exit -eq 1 ]; then
-		if [ -z $vnc_pid ]; then
-			echo "Waiting is not supported; please kill the container with"
-			echo -e "\tpodman kill $container_id"
-		else
-			wait $vnc_pid
-			rm -f $vnc_passwd
-			podman kill $container_id >/dev/null 2>&1
-		fi
+	echo
+
+	if [ $server_watch -eq 0 ] && [ -z $vnc_pid ]; then
+		echo "Waiting is not supported; please kill the container with"
+		echo -e "\tpodman kill $container_id"
+	elif [ $server_watch -eq 1 ]
+		echo "The container will be terminated once all clients are disconnected."
+		echo "If it doesn't, run"
+	fi
+
+	if [ $wait_exit -eq 1 ] && [ ! -z $vnc_pid ]; then
+		wait $vnc_pid
+		podman kill $container_id >/dev/null 2>&1
 	fi
 }
 
